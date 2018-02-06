@@ -23,7 +23,6 @@ options.register( "useJson",False, VarParsing.multiplicity.singleton, VarParsing
 options.register( "additionalSelection","NONE", VarParsing.multiplicity.singleton, VarParsing.varType.string, "addition Selection to use for this sample" )
 datasets=['NA','mu','el','elel','elmu','mumu']
 options.register( "dataset", "NA", VarParsing.multiplicity.singleton, VarParsing.varType.string, "flag to identify which dataset is used, can be "+','.join(datasets))
-options.register( "calcBJetness",False, VarParsing.multiplicity.singleton, VarParsing.varType.bool, "Calculate BJetness variables" )
 options.register( "dumpSyncExe", False, VarParsing.multiplicity.singleton, VarParsing.varType.bool, "Dump textfiles for sync exe?" )
 options.register( "systematicVariations","nominal", VarParsing.multiplicity.list, VarParsing.varType.string, "comma-separated list of systematic variations ('nominal' or systematics base name, up/down will be added)" )
 options.register("deterministicSeeds",True,VarParsing.multiplicity.singleton,VarParsing.varType.bool,"create collections with deterministic seeds")
@@ -42,7 +41,15 @@ if options.maxEvents is -1: # maxEvents is set in VarParsing class by default to
     options.maxEvents = 10000 # reset for testing
 
 if not options.inputFiles:
-    options.inputFiles=['file:/pnfs/desy.de/cms/tier2/store/user/mschrode/TT_TuneCUETP8M2T4_13TeV-powheg-pythia8/Skim-V1_3j20_1l20/170217_171402/0000/Skim_1.root']
+    if options.isData:
+        options.inputFiles=['root://xrootd-cms.infn.it//store/data/Run2016B/MET/MINIAOD/03Feb2017_ver2-v2/100000/028C28AD-47EE-E611-861A-0025905A48EC.root']
+        options.globalTag="80X_dataRun2_2016SeptRepro_v7"
+        options.dataEra="2016B"
+    else:
+        # options.inputFiles=['root://xrootd-cms.infn.it//store/mc/RunIISummer16MiniAODv2/DMV_NNPDF30_Axial_Mphi-1000_Mchi-1_gSM-0p25_gDM-1p0_v2_13TeV-powheg/MINIAODSIM/PUMoriond17_80X_mcRun2_asymptotic_2016_TrancheIV_v6-v1/70000/5AA7E144-8CB8-E611-A77C-0CC47AD99050.root']
+        options.inputFiles=["root://cms-xrd-global.cern.ch//store/mc/RunIISummer16MiniAODv2/WJetsToLNu_HT-1200To2500_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/PUMoriond17_80X_mcRun2_asymptotic_2016_TrancheIV_v6-v1/70000/0CD978DB-0DB7-E611-9C28-141877344134.root"]
+        # options.inputFiles=["root://xrootd-cms.infn.it//store/mc/RunIISummer16MiniAODv2/WJetsToLNu_HT-2500ToInf_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/PUMoriond17_80X_mcRun2_asymptotic_2016_TrancheIV_v6-v1/50000/062203BC-C0C4-E611-A14A-BC305B390AB4.root"]
+        # options.inputFiles=["root://cms-xrd-global.cern.ch//store/mc/RunIISummer16MiniAODv2/WJetsToLNu_HT-2500ToInf_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/PUMoriond17_80X_mcRun2_asymptotic_2016_TrancheIV_v6-v1/50000/1476F163-D2C4-E611-9307-008CFAF558EE.root"]
 
 # checks for correct values and consistency
 if "data" in options.globalTag.lower() and not options.isData:
@@ -105,6 +112,8 @@ process.source = cms.Source(  "PoolSource",
                               fileNames = cms.untracked.vstring(options.inputFiles),
                               skipEvents=cms.untracked.uint32(int(options.skipEvents)),
 )
+
+
 process.load('Configuration.Geometry.GeometryRecoDB_cff')
 process.load("Configuration.StandardSequences.MagneticField_38T_cff")
 
@@ -269,28 +278,31 @@ if eleMVAid:
     my_id_modules = ['RecoEgamma.ElectronIdentification.Identification.mvaElectronID_Spring16_GeneralPurpose_V1_cff']
     for idmod in my_id_modules:
         setupAllVIDIdsInModule(process,idmod,setupVIDElectronSelection)
+        
+### Photon ID ####
+from PhysicsTools.SelectorUtils.tools.vid_id_tools import *
+dataFormat = DataFormat.MiniAOD
+switchOnVIDPhotonIdProducer(process, dataFormat)
+my_id_modules = ['RecoEgamma.PhotonIdentification.Identification.cutBasedPhotonID_Spring16_V2p2_cff']
+for idmod in my_id_modules:
+    setupAllVIDIdsInModule(process,idmod,setupVIDPhotonSelection)
 
-### BJetness ###
-if options.calcBJetness:
-    process.load("TrackingTools/TransientTrack/TransientTrackBuilder_cfi")        
-    process.load('BoostedTTH.BoostedAnalyzer.BJetness_cfi')
-    process.BJetness.is_data = options.isData
-    process.BJetness.patElectrons = electronCollection
-    process.BJetness.muons = muonCollection
 
 # lepton selection
 process.load('BoostedTTH.Producers.SelectedLeptonProducers_cfi')
 process.SelectedElectronProducer.leptons=electronCollection
-process.SelectedElectronProducer.ptMins=[15.,25.,30.]
-process.SelectedElectronProducer.etaMaxs=[2.4,2.4,2.1]
-process.SelectedElectronProducer.leptonIDs=["electron80XCutBasedT"]*3
+process.SelectedElectronProducer.ptMins=[10.,10.,40.]
+process.SelectedElectronProducer.etaMaxs=[2.5,2.5,2.5]
+process.SelectedElectronProducer.leptonIDs=["electron80XCutBasedV","electron80XCutBasedT","electron80XCutBasedT"]
+#process.SelectedElectronProducer.leptonIDs=["none","none","none"]
 process.SelectedElectronProducer.collectionNames=["selectedElectronsLoose","selectedElectronsDL","selectedElectrons"]
 process.SelectedElectronProducer.isData=options.isData
 
 process.SelectedMuonProducer.leptons=muonCollection
-process.SelectedMuonProducer.ptMins=[15.,25.,26.]
-process.SelectedMuonProducer.etaMaxs=[2.4,2.4,2.1]
-process.SelectedMuonProducer.leptonIDs=["tightDL","tightDL","tight"]
+process.SelectedMuonProducer.ptMins=[10.,10.,20.]
+process.SelectedMuonProducer.etaMaxs=[2.4,2.4,2.4]
+process.SelectedMuonProducer.leptonIDs=["loose","tight","tight"]
+#process.SelectedMuonProducer.leptonIDs=["none","none","none"]
 process.SelectedMuonProducer.muonIsoConeSizes=["R04"]*3
 process.SelectedMuonProducer.muonIsoCorrTypes=["deltaBeta"]*3
 process.SelectedMuonProducer.collectionNames=["selectedMuonsLoose","selectedMuonsDL","selectedMuons"]
@@ -298,7 +310,22 @@ process.SelectedMuonProducer.useMuonRC=options.useMuonRC
 process.SelectedMuonProducer.useDeterministicSeeds=options.deterministicSeeds
 process.SelectedMuonProducer.isData=options.isData
 
-#process.SelectedMuonProducerUncorr=process.SelectedMuonProducer.clone(ptMins=[15.],etaMaxs=[2.4],leptonIDs=["tight"],muonIsoConeSizes=["R04"],muonIsoCorrTypes=["deltaBeta"],collectionNames=["selectedMuonsUncorr"],useMuonRC=False)
+process.SelectedTauProducer.leptons=tauCollection
+process.SelectedTauProducer.ptMins=[18.,18.,18.]
+process.SelectedTauProducer.etaMaxs=[2.3,2.3,2.3]
+process.SelectedTauProducer.leptonIDs=["MVAveryloose","loose","medium"]
+#process.SelectedTauProducer.leptonIDs=["none","none","none"]
+process.SelectedTauProducer.collectionNames=["selectedTausLoose","selectedTausDL","selectedTaus"]
+process.SelectedTauProducer.isData=options.isData
+
+# photon selection
+process.load('BoostedTTH.Producers.SelectedPhotonProducer_cfi')
+process.SelectedPhotonProducer.photons = cms.InputTag("slimmedPhotons")
+process.SelectedPhotonProducer.ptMins = [15.]
+process.SelectedPhotonProducer.etaMaxs = [2.5]
+process.SelectedPhotonProducer.collectionNames = ["selectedPhotonsLoose"]
+process.SelectedPhotonProducer.IDs = ["loose"]
+
 
 ### MET correction with official met tool ###
 if options.recorrectMET:
@@ -420,14 +447,17 @@ if options.updatePUJetId:
 process.load("BoostedTTH.Producers.SelectedJetProducer_cfi")
 # selection of corrected and smeared jets -- one producer for every jet systematic that selects two collections (regular and loose jets) each
 # selection of the nominal jets
-process.SelectedJetProducer.jets='patSmearedJets'
+process.SelectedJetProducer.jets=('patSmearedJets')
 process.SelectedJetProducer.applyCorrection=False
 process.SelectedJetProducer.ptMins=[20,30]
-process.SelectedJetProducer.etaMaxs=[2.4,2.4]
+process.SelectedJetProducer.etaMaxs=[2.4,2.5]
 process.SelectedJetProducer.collectionNames=["selectedJetsLoose","selectedJets"]
 process.SelectedJetProducer.systematics=[""]
-process.SelectedJetProducer.PUJetIDMins=["loose","loose"]
+process.SelectedJetProducer.PUJetIDMins=["none","none"]
 process.SelectedJetProducer.JetID="none"
+
+
+
 # selection of the systematically shifted jets
 for syst in systs:
     setattr(process,'SelectedJetProducer'+syst,process.SelectedJetProducer.clone(jets='patSmearedJets'+syst,collectionNames=[n+syst for n in list(process.SelectedJetProducer.collectionNames)]))
@@ -468,7 +498,21 @@ for s in systsJER:
 for s in systsJES:
     setattr(process,'patSmearedJets'+s,process.patSmearedJets.clone(variation=0,src=cms.InputTag("CorrectedJetProducer:correctedJets"+s)))
 
+
+
+process.load("BoostedTTH.Producers.Ak8JetProducer_cfi")
+
+
+
+
 ###############################################
+
+# GenCollectionProducer
+process.load("BoostedTTH.GenCollectionProducer.GenCollectionProducer_cfi")
+process.GenCollectionProducer.collection_name=["CustomGenElectrons","CustomGenMuons","CustomGenTaus","CustomGenJets","CustomGenJetsLoose"]
+process.GenCollectionProducer.collection_type=["Electron","Muon","Tau","Jet","Jet"]
+process.GenCollectionProducer.pt_min=[10.,10.,18.,30.,20.]
+process.GenCollectionProducer.eta_max=[2.5,2.4,2.3,2.5,2.4]
 
 
 ### correct MET manually ###
@@ -526,8 +570,14 @@ if options.isData:
 process.BoostedAnalyzer.selectionNames = [
 "FilterSelection",
 "VertexSelection",
-"LeptonSelection",
-"JetTagSelection"
+#"LeptonSelection",
+#"JetTagSelection",
+# "METSelection",
+"MonoJetSelection",
+"LeptonVetoSelection",
+"BTagVetoSelection",
+"PhotonVetoSelection",
+"monoVselection"
 ]
 if options.additionalSelection!="NONE":
   process.BoostedAnalyzer.selectionNames+=cms.vstring(options.additionalSelection)
@@ -535,21 +585,28 @@ if options.additionalSelection!="NONE":
 if options.isData:
   process.BoostedAnalyzer.processorNames=cms.vstring(
   "WeightProcessor",
-  "AdditionalJetProcessor",
-  "essentialBasicVarProcessor",
-  "essentialMVAVarProcessor",
-  "BDTVarProcessor",
+  #"essentialBasicVarProcessor",
+  #"essentialMVAVarProcessor",
+  #"BDTVarProcessor",
   "TriggerVarProcessor",
+  "DarkMatterProcessor",
+  "monoVProcessor"
+  #"ReconstructionMEvarProcessor",
+  #"TTBBStudienProcessor"
   )
 else:
   process.BoostedAnalyzer.processorNames=cms.vstring(
   "WeightProcessor",
-  "MCMatchVarProcessor",
-  "AdditionalJetProcessor",
-  "essentialBasicVarProcessor",
-  "essentialMVAVarProcessor",
-  "BDTVarProcessor",
+  #"essentialMCMatchVarProcessor",
+  #"essentialBasicVarProcessor",
+  #"essentialMVAVarProcessor",
+  #"BDTVarProcessor",
   "TriggerVarProcessor",
+  #"ReconstructionMEvarProcessor",
+  #"TTBBStudienProcessor"
+  "DarkMatterProcessor",
+  "monoVProcessor",
+  "MonoJetGenSelectionProcessor"
   )
 
 printContent=False
@@ -582,9 +639,8 @@ if options.deterministicSeeds:
 process.p *= process.BadPFMuonFilter*process.BadChargedCandidateFilter*process.badGlobalMuonTaggerMAOD*process.cloneGlobalMuonTaggerMAOD
 if eleMVAid:
     process.p *= process.egmGsfElectronIDSequence
-if options.calcBJetness:
-    process.p *= process.BJetness
-process.p*=process.regressionApplication*process.selectedElectrons*process.calibratedPatElectrons*process.SelectedElectronProducer*process.SelectedMuonProducer#*process.SelectedMuonProducerUncorr
+process.p *= process.egmPhotonIDSequence*process.SelectedPhotonProducer
+process.p*=process.regressionApplication*process.selectedElectrons*process.calibratedPatElectrons*process.SelectedElectronProducer*process.SelectedMuonProducer*process.SelectedTauProducer*process.GenCollectionProducer
 if options.updatePUJetId:
 	process.p*=process.pileupJetIdUpdated*process.updatedPatJets
 process.p*=process.CorrectedJetProducer
@@ -601,10 +657,10 @@ if options.isData:
 
 process.p *= process.CorrectedMETproducer
 
-if not options.isData and not options.isBoostedMiniAOD:
-    process.p *= process.genParticlesForJetsNoNu*process.ak4GenJetsCustom*process.selectedHadronsAndPartons*process.genJetFlavourInfos*process.matchGenBHadron*process.matchGenCHadron*process.categorizeGenTtbar
 
 if printContent:
     process.p *= process.content
+
+process.p *= process.Ak8JetProducer
 
 process.p *= process.BoostedAnalyzer

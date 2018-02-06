@@ -468,6 +468,9 @@ for s in systsJER:
 for s in systsJES:
     setattr(process,'patSmearedJets'+s,process.patSmearedJets.clone(variation=0,src=cms.InputTag("CorrectedJetProducer:correctedJets"+s)))
 
+process.load("BoostedTTH.Producers.Ak8JetProducer_cfi")
+
+
 ###############################################
 
 
@@ -535,21 +538,27 @@ if options.additionalSelection!="NONE":
 if options.isData:
   process.BoostedAnalyzer.processorNames=cms.vstring(
   "WeightProcessor",
-  "AdditionalJetProcessor",
   "essentialBasicVarProcessor",
   "essentialMVAVarProcessor",
   "BDTVarProcessor",
   "TriggerVarProcessor",
+    "monoVProcessor",
+
+  #"ReconstructionMEvarProcessor",
+  #"TTBBStudienProcessor"
   )
 else:
   process.BoostedAnalyzer.processorNames=cms.vstring(
   "WeightProcessor",
-  "MCMatchVarProcessor",
-  "AdditionalJetProcessor",
+  "essentialMCMatchVarProcessor",
   "essentialBasicVarProcessor",
   "essentialMVAVarProcessor",
   "BDTVarProcessor",
   "TriggerVarProcessor",
+    "monoVProcessor",
+
+  #"ReconstructionMEvarProcessor",
+  #"TTBBStudienProcessor"
   )
 
 printContent=False
@@ -606,5 +615,5 @@ if not options.isData and not options.isBoostedMiniAOD:
 
 if printContent:
     process.p *= process.content
-
+process.p *= process.Ak8JetProducer
 process.p *= process.BoostedAnalyzer
